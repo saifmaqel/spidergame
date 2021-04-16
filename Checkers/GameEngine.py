@@ -40,39 +40,37 @@ class GameState:
     # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ calculate the shortest path between the spider and the ant
     # and returns the next step for the spider $$$$$$$$$$$$$$$$$$$$$$$$$$$$
     def breadth_first_search(self, spider, ant):
-        reached_gaol = False
-        visited, distance = [[0 for _ in range(12)] for _ in range(12)], [[-1 for _ in range(12)] for _ in range(12)]
-        prevGraph = [[(-1, -1) for _ in range(12)] for _ in range(12)]
         start_x, start_y, end_x, end_y = int(spider.body.x), int(spider.body.y), int(ant.pos.x), int(ant.pos.y)
-        q = [(start_x, start_y)]
-        visited[start_x][start_y], distance[start_x][start_y] = 1, 0
-        while q:
-            current_node = q.pop(0)
-            current_x, current_y = current_node[0], current_node[1]
-            if current_x == end_x and current_y == end_y:
-                reached_gaol = True
+        open_d, closed, visited = [(start_x, start_y)], [], [(start_x, start_y)]
+        node_parent = {(start_x, start_y): None}
+        reached_goal = False
+        while open_d:
+            current_x, current_y = open_d.pop(0)
+            if (current_x, current_y) == (end_x, end_y) :
+                reached_goal = True
                 break
-                ### get neighbors  for the current node ###
             for i in range(8):
                 valid_x, valid_y = current_x + self.validRowMoves[i], current_y + self.validColMoves[i]
-                if self.is_valid(valid_x, valid_y) :
-                    q.append((valid_x, valid_y))
-                    distance[valid_x][valid_y], visited[valid_x][valid_y] = distance[current_x][current_y] + 1, 1
-                    prevGraph[valid_x][valid_y] = (current_x, current_y)
-                else:
+                closed.append((current_x, current_y))
+                if (valid_x, valid_y) in open_d or (valid_x, valid_y) in closed or not self.is_valid(valid_x, valid_y):
                     continue
-            if reached_gaol:
-                break
-            # else:
-            #     continue
-        path = self.goal_path(prevGraph, end_x, end_y)
-        if reached_gaol:
-            print("spider won")
-            # for i in distance:
-            #     print(i)
-            # print("goal path: ", path)
+                visited.append((valid_x, valid_y))
+                node_parent[(valid_x, valid_y)] = (current_x, current_y)
+                open_d.append((valid_x, valid_y))
+                if (valid_x, valid_y) == (end_x, end_y) or reached_goal:
+                    reached_goal = True
+                    break
+        if reached_goal:
+            goal_parent = node_parent[end_x, end_y]
+            path = [(end_x, end_y)]
+            while goal_parent is not None :
+                path.append(goal_parent)
+                goal_parent = node_parent[goal_parent]
+            print(path)
+            print(node_parent)
             return path[-2]
-        return -1
+        else:
+            return -1
 
     # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ calculate the shortest path between the spider and the ant
     # and returns the next step for the spider $$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -115,45 +113,6 @@ class GameState:
             return path[-2]
         else:
             return -1
-
-    # def depth_first_search(self, spider, ant):
-    #     start_x, start_y, end_x, end_y = int(spider.body.x), int(spider.body.y), int(ant.pos.x), int(
-    #         ant.pos.y)  # spider and ant pos
-    #     sp, path, stack = [], [], [((start_x, start_y), (-1, -1))]
-    #     reached_gaol = False
-    #     visited, distance = [[0 for _ in range(12)] for _ in range(12)], [[-1 for _ in range(12)] for _ in range(12)]
-    #     prev_graph = [[(-1, -1) for _ in range(12)] for _ in range(12)]
-    #     visited[start_x][start_y], distance[start_x][start_y] = 1, 0
-    #     while stack:
-    #         current = stack.pop()  # LIFO
-    #         current_node = current[0]
-    #         current_x, current_y = current_node[0], current_node[1]
-    #         sp.append(current)
-    #         if current_x == end_x and current_y == end_y:
-    #             reached_gaol = True
-    #             break
-    #         for i in range(8):
-    #             valid_x, valid_y = current_x + self.validRowMoves[i], current_y + self.validColMoves[i]
-    #             if self.is_valid(valid_x, valid_y, visited):
-    #                 stack.append(((valid_x, valid_y), (current_x, current_y)))
-    #                 distance[valid_x][valid_y], visited[valid_x][valid_y] = distance[current_x][current_y] + 1, 1
-    #             else:
-    #                 continue
-    #         if reached_gaol:
-    #             break
-    #
-    #     path = self.goal_path(prev_graph, end_x, end_y)
-    #     parent_index = 1
-    #     parent = sp[-parent_index][1]
-    #     while parent != (-1, -1):
-    #         parent_index += 1
-    #         parent = sp[-parent_index][1]
-    #         path.append(parent)
-    #     path.reverse()
-    #
-    #     if reached_gaol:
-    #         return path[-1]
-    #     return -1
 
     ##################### add every nodes parent to path list ###########################
     def goal_path(self, prev_graph, a_x, a_y):

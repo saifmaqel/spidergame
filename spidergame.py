@@ -46,6 +46,7 @@ def main():
                 if gs.spiderMove:
                     if event.key == pygame.K_SPACE:
                         if eve == "breadth":
+                            # print(gs.breadth_first_search(spider, ant))
                             move = eng.Move(spider, gs.breadth_first_search(spider, ant))
                             gs.make_spider_move(screen, move, spider, ant)
                         elif eve == "depth":
@@ -57,6 +58,7 @@ def main():
                             gs.make_spider_move(screen, move, spider, ant)
                         # move = eng.Move(sp id  er)
                         # gs.make_spider_mo ve(screen, move, spider)
+            #             (3, 6): (5, 5), (4, 7): (5, 5), (6, 7): (5, 5), (7, 6): (5, 5), (7, 4): (5, 5), (6, 3): (5, 5), (4, 3): (5, 5), (3, 4): (5, 5), (2, 8): (4, 7), (3, 9): (4, 7), (5, 9): (4, 7), (6, 8): (4, 7), (6, 6): (4, 7), (3, 5): (4, 7), (2, 6): (4, 7), (4, 8): (6, 7), (7, 9): (6, 7), (8, 8): (6, 7), (8, 6): (6, 7), (7, 5): (6, 7), (4, 6): (6, 7), (5, 7): (7, 6), (9, 5): (7, 4), (4, 4): (6, 3), (2, 4): (4, 3), (1, 5): (3, 4), (0, 9): (2, 8), (1, 10): (3, 9), (3, 10): (5, 9), (4, 9): (6, 8), (5, 8): (6, 6), (1, 6): (3, 5), (0, 7): (2, 6), (2, 9): (4, 8), (5, 10): (7, 9), (6, 9): (8, 8), (7, 8): (8, 6), (5, 6): (7, 5)}
             if not gs.spiderMove:
                 gs.make_ant_move(screen, ant, spider)
                 # for i in BOARD:
