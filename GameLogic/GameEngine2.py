@@ -1,5 +1,5 @@
 from .constants import LIGHT_WIGHT, WIGHT, ROWS, COLS, CELL_SIZE, HEIGHT, WIDTH, BOARD
-import time, random
+import time, math
 from queue import PriorityQueue
 from collections import deque
 
@@ -33,7 +33,7 @@ def first_heuristc_func(start, goal):
     elif abs(a_x - s_x) == 2 and abs(a_y - s_y) == 2:
         return 4
     else:
-        return abs(a_x - s_x) + abs(a_y - s_y) - 2
+        return math.sqrt(math.pow(abs(a_x - s_x), 2) + math.pow(abs(a_y - s_y), 2))
 
 
 def second_heuristc_func(start, goal):
@@ -62,27 +62,30 @@ class GameState:
         self.ant = ant
         self.board = BOARD
         self.spiderMove = True
-        self.exitGame = False
+        self.AntIsDead = False
+        self.AntWon = False
         self.validRowMoves = [-2, -1, 1, 2, 2, 1, -1, -2]
         self.validColMoves = [1, 2, 2, 1, -1, -2, -2, -1]
+        self.old = (-1, -1)
 
     ######################################## make spider move on the BOARD and on the GUI takes screen obj MOVE obj
     # spider obj and ant obj##################
 
     def make_spider_move(self, screen, move):
         if self.spider.body.x >= ROWS or self.spider.body.x < 0 or self.spider.body.y >= COLS or self.spider.body.y < 0:
-            self.exitGame = True
+            self.AntWon = True
             print("ant wins")
         else:
             self.board[int(move.startRow)][int(move.startCol)] = "--"
-            self.spider.body.x = move.endRow
-            self.spider.body.y = move.endCol
+            self.spider.body.x, self.spider.body.y = move.endRow, move.endCol
             self.board[int(self.spider.body.x)][int(self.spider.body.y)] = "S"
-            self.spider.draw_spider(screen)
+            self.spider.draw_spider()
             if self.spider_won():
-                print("spider won")
                 time.sleep(1)
-                self.exitGame = True
+                self.AntIsDead = True
+                # self.board[int(self.ant.pos.x)][int(self.ant.pos.y)] = "--"
+                # self.ant.draw_ant()
+                # self.board[int(self.ant.pos.x)][int(self.ant.pos.y)] = "A"
             else:
                 self.spiderMove = not self.spiderMove
 
@@ -90,129 +93,71 @@ class GameState:
     # and ant obj##################
     def make_ant_move(self, screen):
         prev_pos = self.ant.pos
-        self.ant.get_random_pos()
+        self.ant.move_to_left()
         if self.ant.pos.x > ROWS - 1 or self.ant.pos.x < 0 or self.ant.pos.y > COLS - 1 or self.ant.pos.y < 0:
-            self.exitGame = True
-        elif self.ant.pos.x == self.spider.body.x and self.ant.pos.y == self.spider.body.y:
-            self.exitGame = True
+            self.AntWon = True
+        elif self.spider_won():
+            self.AntIsDead = True
             print("spider won")
         else:
             self.board[int(prev_pos.x)][int(prev_pos.y)] = "--"
             self.board[int(self.ant.pos.x)][int(self.ant.pos.y)] = "A"
-            self.ant.draw_ant(screen)
+            self.ant.draw_ant()
 
     ################################################ test if the spider ate the ant ###############################################33
     def spider_won(self):
         if self.spider.body.x == self.ant.pos.x and self.spider.body.y == self.ant.pos.y:
             return True
 
+    def get_next_move(self, node_parent):
+        x, y = self.ant.get_pos()
+        path, parent = [(x, y)], node_parent[(x, y)]
+        while parent != self.spider.get_pos():
+            path.append(parent)
+            parent = node_parent[(parent[0], parent[1])]
+        self.old = path[-1]
+        return path[-1]
     # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ calculate the shortest path between the spider and the ant
     # and returns the next step for the spider $$$$$$$$$$$$$$$$$$$$$$$$$$$$ @@@@@@@@ fix
-    def breadth_first_search(self):
-        start_x, start_y, end_x, end_y = int(self.spider.body.x), int(self.spider.body.y), int(self.ant.pos.x), int(
-            self.ant.pos.y)
-        open_d = deque()
-        open_d.append((start_x, start_y))
-        visited, node_parent, reached_goal, closed = [(start_x, start_y)], [[(-1, -1) for _ in range(COLS)] for _ in
-                                                                            range(ROWS)], False, []
-        while open_d:
-            current_x, current_y = open_d.pop()
-            closed.append((current_x, current_y))
-            if (current_x, current_y) == (end_x, end_y):
-                reached_goal = True
-                break
-            for i in range(8):
-                valid_x, valid_y = current_x + self.validRowMoves[i], current_y + self.validColMoves[i]
-                if (valid_x, valid_y) in visited or (valid_x, valid_y) in closed or not is_valid(valid_x, valid_y):
-                    continue
-                visited.append((valid_x, valid_y))
-                node_parent[valid_x][valid_y] = (current_x, current_y)
-                open_d.appendleft((valid_x, valid_y))
 
-        if reached_goal:
-            goal_parent = node_parent[end_x][end_y]
-            path = [(end_x, end_y)]
-            while goal_parent != (-1, -1):
-                path.append(goal_parent)
-                goal_parent = node_parent[goal_parent[0]][goal_parent[1]]
-            print(path)
-            print(node_parent)
-            return path[-2]
-        else:
-            return -1
+    def breadth_first_search(self):
+        queue, visited, reached_goal, node_parent = [], [], False, {(self.spider.body.x, self.spider.body.y): None}
+        body = self.spider.get_pos()
+        queue.append((body[0], body[1]))
+        while queue:
+            current = queue.pop(0)
+            visited.append(current)
+            if (current[0], current[1]) == (self.ant.get_pos()):
+                return node_parent
+            for i in range(len(self.validRowMoves)):
+                neighbor_x, neighbor_y = current[0] + self.validRowMoves[i], current[1] + self.validColMoves[i]
+                if (neighbor_x, neighbor_y) in visited or not is_valid(neighbor_x, neighbor_y):
+                    continue
+                queue.append((neighbor_x, neighbor_y))
+                node_parent[(neighbor_x, neighbor_y)] = current
+        return False
 
     def depth_first_search(self):
-        start_x, start_y, end_x, end_y = int(self.spider.body.x), int(self.spider.body.y), int(self.ant.pos.x), int(
-            self.ant.pos.y)
-        open_d = deque()
-        open_d.append((start_x, start_y))
-        visited, node_parent, reached_goal, closed = [(start_x, start_y)], [[(-1, -1) for _ in range(COLS)] for _ in
-                                                                            range(ROWS)], False, []
-        while open_d:
-            current_x, current_y = open_d.pop()
-            closed.append((current_x, current_y))
-            if (current_x, current_y) == (end_x, end_y):
-                reached_goal = True
-                break
-            for i in range(8):
-                valid_x, valid_y = current_x + self.validRowMoves[i], current_y + self.validColMoves[i]
-                if (valid_x, valid_y) in visited or (valid_x, valid_y) in closed or not is_valid(valid_x, valid_y):
-                    continue
-                visited.append((valid_x, valid_y))
-                node_parent[valid_x][valid_y] = (current_x, current_y)
-                open_d.append((valid_x, valid_y))
+        stack, visited, reached_goal, node_parent = [], [], False, {(self.spider.body.x, self.spider.body.y): None}
+        body = self.spider.get_pos()
+        stack.append((body[0], body[1]))
+        while stack:
+            current = stack.pop()
+            visited.append(current)
+            for i in range(len(self.validRowMoves)):
+                neighbor_x, neighbor_y = current[0] + self.validRowMoves[i], current[1] + self.validColMoves[i]
+                if (neighbor_x, neighbor_y) not in visited and is_valid(neighbor_x, neighbor_y):
+                    stack.append((neighbor_x, neighbor_y))
+                    node_parent[(neighbor_x, neighbor_y)] = current
+                if (neighbor_y, neighbor_x) == (self.ant.get_pos()):
+                    return node_parent
+        return False
 
-        if reached_goal:
-            goal_parent = node_parent[end_x][end_y]
-            path = [(end_x, end_y)]
-            while goal_parent != (-1, -1):
-                path.append(goal_parent)
-                goal_parent = node_parent[goal_parent[0]][goal_parent[1]]
-            print(path)
-            print(node_parent)
-            return path[-2]
-        else:
-            return -1
-
-    # def depth_first_search(self):
-    #     start_x, start_y, end_x, end_y = int(self.spider.body.x), int(self.spider.body.y), int(self.ant.pos.x), int(
-    #         self.ant.pos.y)
-    #     visited, node_parent, reached_goal, open_d = [(start_x, start_y)], [[(-1, -1) for _ in range(COLS)] for _ in
-    #                                                                         range(ROWS)], False, []
-    #     open_d.append((start_x, start_y))
-    #     while open_d:
-    #         current_x, current_y = open_d.pop()
-    #         if (current_x, current_y) == (end_x, end_y):  # **************************************
-    #             reached_goal = True
-    #             break
-    #         for i in range(8):
-    #             valid_x, valid_y = current_x + self.validRowMoves[i], current_y + self.validColMoves[i]
-    #             if (valid_x, valid_y) in open_d or (valid_x, valid_y) in visited or not is_valid(valid_x, valid_y):
-    #                 continue
-    #             visited.append((valid_x, valid_y))
-    #             node_parent[valid_x][valid_y] = (current_x, current_y)
-    #             open_d.append((valid_x, valid_y))
-    #     if reached_goal:
-    #         goal_parent, path = node_parent[end_x][end_y], [(end_x, end_y)]
-    #         while goal_parent != (-1, -1):
-    #             path.append(goal_parent)
-    #             goal_parent = node_parent[goal_parent[0]][goal_parent[1]]
-    #         print(path)
-    #         for i in node_parent:
-    #             print(i)
-    #         return path[-2]
-    #     else:
-    #         return -1
-
-    def AStare(self):
+    def AStar(self):
         G_values, H_values = self.get_exact_distance(self.spider.body, self.ant.pos), self.get_exact_distance(
             self.ant.pos, self.spider.body)
-        # F_values = [[0 for i in range(ROWS)] for i in range(COLS)]
-        # for i in range(ROWS):
-        #     for j in range(COLS):
-        #         F_values[i][j] = G_values[i][j] + H_values[i][j]
-        start_node = s_x, s_y = int(self.spider.body.x), int(self.spider.body.y)
-        goal_node = a_x, a_y = int(self.ant.pos.x), int(self.ant.pos.y)
+        start_node = s_x, s_y = self.spider.get_pos()
+        goal_node = a_x, a_y = self.ant.get_pos()
         reached_goal = False
         open_set = PriorityQueue()
         open_set.put((G_values[s_x][s_y] + H_values[s_x][s_y], start_node, None))
@@ -224,35 +169,19 @@ class GameState:
                 neighbor_x, neighbor_y = current_node[1][0] + self.validRowMoves[i], current_node[1][1] + \
                                          self.validColMoves[i]
                 neighbor = (neighbor_x, neighbor_y)
-                if not is_valid(neighbor_x, neighbor_y) or neighbor in closed or neighbor in explored:
+                if not is_valid(neighbor_x, neighbor_y) or neighbor in closed:
                     continue
                 g, h = G_values[neighbor_x][neighbor_y] + G_values[current_node[1][0]][current_node[1][1]], \
                        H_values[neighbor_x][neighbor_y]
-                # f = g + h
+                f = g + h
                 if neighbor in explored and explored[neighbor] < g:
-                    continue
-                elif neighbor in closed and explored[neighbor] < g:
                     continue
                 else:
                     open_set.put((g + h, neighbor, current_node[1]))
-                    explored[neighbor] = g  # make sure h or g######################33
+                    explored[neighbor] = g
                     node_parent[neighbor] = current_node[1]
                 if neighbor == goal_node:
-                    reached_goal = True
-                    break
-            if reached_goal:
-                break
-        if reached_goal:
-            parent, path = node_parent[goal_node], []
-            while parent != (s_x, s_y):
-                path.append(parent)
-                parent = node_parent[parent]
-            if path:
-                return path[-1]
-            else:
-                return a_x, a_y
-        if not reached_goal:
-            return None
+                    return node_parent
 
     def get_exact_distance(self, start, goal):
         start_x, start_y, end_x, end_y = int(start.x), int(start.y), int(goal.x), int(goal.y)
@@ -266,11 +195,9 @@ class GameState:
             for i in range(8):
                 valid_x_g, valid_y_g = int(current_x_g) + self.validRowMoves[i], int(current_y_g) + self.validColMoves[
                     i]
-                if not is_valid(valid_x_g, valid_y_g):
+                if not is_valid(valid_x_g, valid_y_g) or visited_G[valid_x_g][valid_y_g] == 1:
                     continue
                     ############################### visited importan for depth
-                if visited_G[valid_x_g][valid_y_g] == 1:
-                    continue
                 node_distance[valid_x_g][valid_y_g] = node_distance[current_x_g][current_y_g] + 1
                 visited_G[valid_x_g][valid_y_g] = 1
                 q_G.appendleft((valid_x_g, valid_y_g))
@@ -312,19 +239,5 @@ class GameState:
                     explored[neighbor] = h  # make sure h or g######################33
                     node_parent[neighbor] = current_node[1]
                 if neighbor == goal_node:
-                    reached_goal = True
-                    break
-            if reached_goal:
-                break
-        if reached_goal:
-            parent = node_parent[goal_node]
-            path = []
-            while parent != (s_x, s_y):
-                path.append(parent)
-                parent = node_parent[parent]
-            if path:
-                return path[-1]
-            else:
-                return a_x, a_y
-        if not reached_goal:
-            return None
+                    return node_parent
+        return False
